@@ -1,0 +1,117 @@
+clc,clear,close all
+
+a = 0 ;
+b = 0.5*pi ;
+h = b-a;
+
+tol = 1e-12;
+%precise = 2.5462547334994;
+% f = @(x) 2^0.5 / ((1+sin(x)^2)*(2-sin(x)^2)^0.5);
+f = @(x) sin(x) + 0.5 * cos(3 * x) + 0.3 * sin(5 * x) + 0.1 * cos(7 * x);
+% f = @(x) cos(x);
+% 设定 x 的范围并绘制图像
+x = linspace(0, 2 * pi, 1000); % 从 0 到 2π 的区间
+y = f(x);
+
+plot(x, y);
+xlabel('x');
+ylabel('f(x)');
+title('f(x) = sin(x) + 0.5 * cos(3x) + 0.3 * sin(5x) + 0.1 * cos(7x)');
+grid on;
+f(pi)
+f(0)
+I1 = var_trapezoid(f, h, a, b, tol);
+t = romberg(f, a, b, tol);
+disp("romberg matrix");
+disp(t);
+for i = 1:1:size(t,2)
+    fprintf("steps: %d, romberg: %.13f\n", i-1, t(i,i));
+end
+
+% syms m;
+% k(m) = 2^0.5 / ((1+sin(m)^2)*(2-sin(m)^2)^0.5);
+% Romberg_Iteration(k,a,b,tol);
+% 
+% I3 = vstrapezoid(f,a,b,tol);
+% fprintf("var_trapezoid: %.13f, error: %.13f\n", I3, I3 - precise);
+function I = var_trapezoid(f, h, a, b, tol)
+    I = h * ( f(a) + f(b) ) / 2;
+    count = 0;
+    while 1
+        I_last = I;
+        sum = 0;
+        for j = a+h/2:h:b-h/2
+          sum = sum + f(j);
+        end
+        I = 0.5 * (I_last + h * sum);
+        h = h/2;
+        if abs(I_last - I) < tol
+            fprintf("steps:%d, reached tol, var_trapezoid: %.13f\n\n", count + 1, I);
+            break;
+        end
+        count = count + 1;
+        fprintf("steps:%d, var_trapezoid: %.13f\n", count, I);
+    end
+end
+
+function t = romberg(f,a,b,tol)
+    h = b - a;
+    t(1,1) = h * (f(a) + f(b)) / 2;
+    m = 1;
+    l = 0;
+    err = 1;
+    
+    while err >= tol
+        l = l + 1; h = h / 2;
+        for n = 1:m
+            g(n) = f(a+h*(2*n-1));
+        end
+        
+        s = sum(g);
+        t(l+1,1) = t(l,1)/2+s*h;
+        m = 2*m;
+        
+        for k = 1:l
+            t(l+1,k+1) = (4^k * t(l+1,k) - t(l,k)) / (4^k-1);
+        end
+        
+        err = abs(t(l+1,l+1)-t(l,l));
+    end
+end
+
+function [] = Romberg_Iteration(f,a,b,e)
+k=0; % 迭代次数
+n=1; % 区间划分个数
+h=b-a;
+T=double(h/2*(f(a)+f(b)));%梯形公式求出T(1,1)
+err=b-a;
+while err>=e
+    k=k+1;
+    h=h/2;
+    tmp=0;
+    for i=1:n
+        tmp=tmp+f(a+(2*i-1)*h);
+    end
+    T(k+1,1)=double(T(k)/2+h*tmp);%求出行首元
+    for j=1:k
+        T(k+1,j+1)=double(T(k+1,j))+double((T(k+1,j)-T(k,j))/(4^j-1));%迭代算法
+    end
+    n=n*2;
+    err=abs(T(k+1,k+1)-T(k,k));%误差为该次迭代的首元和上一次迭代首元的差
+end
+disp(T);
+end
+
+function z=vstrapezoid(f,a,b,tol)
+    t0=(b-a)*(f(a)+f(b))/2;
+    t1=t0/2+(b-a)*f(a+(b-a)/2)/2; k=1;
+    while abs(t1-t0)>=tol & k<=1000
+        k=k+1;
+        for n=1:2^(k-1)
+            g(n)=f(a+(b-a)*(2*n-1)/2^k);
+        end
+        s=sum(g); t0=t1; t1=t0/2+s*(b-a)/2^k;
+    end
+    z = t1;
+    k
+end
